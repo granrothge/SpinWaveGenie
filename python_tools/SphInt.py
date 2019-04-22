@@ -1,5 +1,5 @@
 import numpy as np
-import helper
+import python_tools.helper as helper
 
 def fib(n,m ):
     """
@@ -75,14 +75,37 @@ def sph_integrate_array(func,n,nE,*fargs):
         z,phi,dz = calc_z_Phi(n)
         zp = weight_sample(z)
         integrand_array=np.zeros((len(zp),nE))
+        func1array=np.zeros((len(zp),nE))
+        func2array=np.zeros((len(zp),nE))
         phi_pp=phi+np.pi # add pi to phi before calculating each function
         # use for loop to allow for non vectorizable functions
         for idx,zpj in enumerate(zp):
-            integrand_array[idx,:]=func(phi[idx],zpj,*fargs)+func(phi_pp[idx],zpj,*fargs)
+            func1array[idx,:]=func(phi[idx],zpj,*fargs)
+            func2array[idx,:]=func(phi_pp[idx],zpj,*fargs)
+        integrand_array=func1array+func2array
         zt=np.tile(z,(nE,1)).T
         integrand_array*=(1+np.cos(np.pi*zt))
         integral_out=np.nansum(integrand_array,axis=0)*np.pi*dz
-        return integrand_array
+        return integrand_array,func1array,func2array
+
+def sph_integrate_MC(func,n,nE,*fargs):
+    """
+    perform a monte carlo based spherical integration
+    on the given func
+    n is the number of random points to generate
+    """
+    #calculate a bunch of random unit vectors
+    np.random.seed() # I think this is necessary for multithreading
+    rvec = np.random.randn(3,n)
+    rvec_amp = np.sqrt((rvec*rvec).sum(axis=0))
+    urvec = rvec/rvec_amp
+    phi = np.arctan2(urvec[1,:],urvec[0,:])
+    zs = urvec[2,:]
+    integrand_array=np.zeros((len(zs),nE))
+    for idx, z in enumerate(zs):
+        integrand_array[idx,:]=func(phi[idx],z,*fargs)
+    integral_out=np.sum(integrand_array,axis=0)/n
+    return integral_out
 
 def I_qtp_E(p,z,q,E,gw,cell,genie_inst):
     """
@@ -109,3 +132,29 @@ def I_qtp_E(p,z,q,E,gw,cell,genie_inst):
         c[idx]=res[idx].frequency
     I=helper.ngauss(E,A,c,w)
     return I
+
+def I_qtp_E_debug(p,z,q,E,gw,cell,genie_inst):
+    """
+    return an intensity based on q, z=cos(theta), and phi (p)
+    E is an array of energy values, gw is the width of a gaussian in energy to integrate
+    cell is a cell object for determining the unit cell.
+    genie_inst is the instance of a genie object for calculating spin waves
+    """
+    t=np.arccos(z)
+    qv = np.zeros(3)
+    qv[0],qv[1],qv[2] = rtp2xyz(q,t,p)
+    bv = cell.getBasisVectors()
+    hkl = (qv.T*bv/2/np.pi).sum(axis=0)
+    genie_inst.createMatrix(*hkl)
+    genie_inst.calculate()
+    res=genie_inst.getPoints()
+    A=np.zeros(len(res))
+    c=np.zeros(len(res))
+    w=np.zeros(len(res))+gw
+    for idx in range(len(res)):
+          # handle if the C++ code returns a nan.  # probably needs to be caught upstream
+        #if ~np.isnan(res[idx].intensity):
+        A[idx]=res[idx].intensity
+        c[idx]=res[idx].frequency
+    #I=helper.ngauss(E,A,c,w)
+    return A,c
