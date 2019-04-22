@@ -89,10 +89,18 @@ PYBIND11_MODULE(python_SpinWaveGenie, m)
 
   py::class_<InteractionFactory>(m, "InteractionFactory")
       .def(py::init<>())
-      .def("getExchange",&InteractionFactory::getExchange,"Construct exchange interaction term.")
-      .def("getDzyaloshinskiiMoriya",&InteractionFactory::getDzyaloshinskiiMoriya,"Construct Dzyaloshinskii-Moriya interaction term")
-      .def("getAnisotropy",&InteractionFactory::getAnisotropy,"Construct single-ion anisotropy term.")
-      .def("getMagneticField",&InteractionFactory::getMagneticField,"Construct magnetic field term.");
+      .def("getExchange", &InteractionFactory::getExchange, "Construct exchange interaction term.")
+      .def("getDzyaloshinskiiMoriya", &InteractionFactory::getDzyaloshinskiiMoriya,
+           "Construct Dzyaloshinskii-Moriya interaction term")
+      .def("getAnisotropy",
+           py::overload_cast<const std::string &, double, const Eigen::Vector3d &, const std::string &>(
+               &InteractionFactory::getAnisotropy),
+           "Construct single-ion anisotropy term.")
+      .def("getAnisotropy",
+           py::overload_cast<const std::string &, const Eigen::Matrix3d &, const std::string &>(
+               &InteractionFactory::getAnisotropy),
+           "Construct single-ion anisotropy term.")
+      .def("getMagneticField", &InteractionFactory::getMagneticField, "Construct magnetic field term.");
 
   py::class_<Point>(m, "Point")
       .def_readonly("frequency", &Point::frequency, "Frequency associated with a given excitation (in meV).")
@@ -201,7 +209,6 @@ PYBIND11_MODULE(python_SpinWaveGenie, m)
   py::class_<IntegrateEnergy, SpinWavePlot>(m, "IntegrateEnegy")
       .def(py::init<const SpinWavePlot &, const Energies &, double, double, int>());
 
-
   py::class_<TwoDimensionalCut>(m, "TwoDimensionalCut")
       .def(py::init<>())
       .def("setFilename", &TwoDimensionalCut::setFilename, "Set filename to save results of cut")
@@ -209,11 +216,10 @@ PYBIND11_MODULE(python_SpinWaveGenie, m)
       .def("setEnergyPoints", &TwoDimensionalCut::setEnergyPoints, "")
       .def("setPlotObject",
            static_cast<void (TwoDimensionalCut::*)(const SpinWavePlot &)>(&TwoDimensionalCut::setPlotObject), "")
+      .def("getMatrix", &TwoDimensionalCut::getMatrix,"Get cut as a 2D array")
       .def("save", &TwoDimensionalCut::save, "Calculate and the save the result to the specified filename");
 
   py::class_<IntegrateThetaPhi, SpinWavePlot>(m, "IntegrateThetaPhi")
       .def(py::init<const SpinWavePlot &, double, int>());
-      //
-
   
 }
